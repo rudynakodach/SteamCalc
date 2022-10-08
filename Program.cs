@@ -1,7 +1,12 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
-using System.Collections;
 using System.Text;
+using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using SteamCalc.APIKey;
+
 
 #pragma warning disable SYSLIB0014
 #pragma warning disable CS8602
@@ -10,81 +15,36 @@ namespace SteamCalc
 { 
 	public static class SteamCalculator
 	{
-		static WebClient wc = new();
+		public const string APIKey = ProtectedAPIKey.APIKey;
 
-		internal static string? username;
+		public const string SteamGamesAPILink = $"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1?key={APIKey}&steamid=76561198871868188";
+		public const string SteamLevelAPILink = $"https://api.steampowered.com/IPlayerService/GetSteamLevel/v1?key={APIKey}&steamid=76561198871868188";
+
+        static WebClient wc = new();
+
+		//internal static string? steamID;
 		public static void Main()
 		{
-			username = Console.ReadLine();
+			//steamID = Console.ReadLine();
 
-			string link = "https://steamcommunity.com/id/" + username + "/games/?tab=all";
+			byte[] SteamGamesAPIResponse = wc.DownloadData(SteamGamesAPILink);
+			byte[] SteamLevelAPIResponse = wc.DownloadData(SteamLevelAPILink);
 
-			byte[] htmlContent = wc.DownloadData(link);
 
-			char[] htmlChars = Encoding.Default.GetString(htmlContent).ToCharArray();
+            string SteamLevelAPIResponseString = Encoding.Default.GetString(SteamLevelAPIResponse);
+			string SteamGamesAPIResponseString = Encoding.Default.GetString(SteamGamesAPIResponse);
 
-			string htmlContentSTR = String.Join("", htmlChars);
+            var levelRoot = JToken.Parse(SteamLevelAPIResponseString);
 
-			List<string> html_quotes = WebBrowser.HtmlGetEveryObjectInQuotes(htmlChars);
+			var level = levelRoot
+				.SelectToken("response")
+				.SelectToken("player_level");
 
-			Console.WriteLine(htmlContentSTR);
-			Console.ReadKey();
-		}
-	}
-	public static class WebBrowser
-	{
-		public static bool Get(string url)
-		{
-			HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-			request.Method = "GET";
-			request.Timeout = 5000;
-			request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36";
 
-			bool success = true;
-
-			try
-			{
-				using (var response = request.GetResponse() as HttpWebResponse)
-				{
-					if (response.StatusCode == HttpStatusCode.OK)
-					{
-						success = true;
-					}
-				}
-			}
-			catch (Exception e)
-			{
-				Console.WriteLine(e.Message);
-				success = false;
-			}
-
-			request.Abort();
-			return success;
-		}
-		public static List<string> HtmlGetEveryObjectInQuotes(char[] htmlChars)
-		{
-			List<string> links = new List<string>();
-			string link = "";
-			bool afterQuote = false;
-			foreach (char ch in htmlChars)
-			{
-				if (ch == '"')
-				{
-					afterQuote = !afterQuote;
-
-					if (!afterQuote)
-					{
-						links.Add(link);
-						link = "";
-					}
-				}
-				else if (afterQuote)
-				{
-					link += ch;
-				}
-			}
-			return links;
-		}
-	}
+			Console.ForegroundColor = ConsoleColor.Blue;
+			Console.WriteLine($"Player level: {level}");
+        }
+    }
 }
+
 
