@@ -211,6 +211,9 @@ namespace SteamCalc
 
                 GamesOwned = gameCountVar;
                 
+                //TODO: not crash when a token doesnt exist
+                //how tf does it even crash in try lol
+
                 try
                 {
                     foreach (JToken token in lastPlayedGame)
