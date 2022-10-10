@@ -2,12 +2,10 @@
 using System.Net;
 using System.Text;
 using Newtonsoft.Json.Linq;
-using SteamCalc.APIKey;
 using System.IO;
 using System.Threading.Tasks;
 #pragma warning disable SYSLIB0014
 #pragma warning disable CS8602
-#pragma warning disable SYSLIB0011
 
 namespace SteamCalc
 {
@@ -17,10 +15,8 @@ namespace SteamCalc
         internal static string KeyFileDirectory = Directory.GetCurrentDirectory() + @"/SteamCalc/";
         internal static string saveFilename = "APIKey.dat";
 
-
         internal static int totalPlaytime = 0;
         public static string? APIKey;
-        public const string APIKey2 = ProtectedAPIKey.APIKey;
 
         static WebClient wc = new();
 
@@ -30,6 +26,9 @@ namespace SteamCalc
         internal static string? RealName;
         internal static string? CountryCode;
         internal static string? GamesOwned;
+        internal static string? LastPlayedGame;
+
+        public static bool ChangeAPIKey = false;
 
         public static async Task Main()
         {
@@ -44,11 +43,16 @@ namespace SteamCalc
             else
             {
                 Directory.CreateDirectory(KeyFileDirectory);
-                //File.Create(KeyFileDirectory + saveFilename);
                 using (FileStream fs = new(KeyFileDirectory + saveFilename, FileMode.Create))
                 using (StreamWriter sw = new(fs))
                 {
-                    Console.Write("API Key not found! You can get one from https://steamcommunity.com/dev/apikey\nEnter your API Key: ");
+                    if(!ChangeAPIKey)
+                        Console.Write("API key not found! You can get one from https://steamcommunity.com/dev/apikey\nEnter your API key: ");
+                    else
+                    {
+                        Console.Write("You can get your API key from https://steamcommunity.com/dev/apikey \nEnter your API key: ");
+                        ChangeAPIKey = false;
+                    }
                     string SteamAPIKey = Console.ReadLine();
 
                     sw.Write(SteamAPIKey);
@@ -57,15 +61,52 @@ namespace SteamCalc
                 }
             }
 
-            if(startupMessage)
+            if (startupMessage)
             {
                 startupMessage = false;
-                Console.WriteLine($"Your API Key: {APIKey}");
+                Console.WriteLine($"Your API Key: {APIKey}\nType \"-edit apikey\" to edit your API key. ");
             }
             Console.ForegroundColor = ConsoleColor.White;
-            Console.Write("SteamID: ");
+            Console.Write("SteamID or vanity URL: ");
             steamID = Console.ReadLine();
+            Console.Clear();
 
+            if (steamID.ToLower() == "-edit apikey")
+            {
+                File.Delete(KeyFileDirectory + saveFilename);
+                ChangeAPIKey = true;
+                await Main();
+            }
+            if (steamID.Contains("steamcommunity.com/id"))
+            {
+                Console.WriteLine("\nVanity URL detected! Getting steamID from API...\n");
+                string[] strings = steamID.Split("/");
+
+                steamID = strings[strings.Length - 2];
+
+                Console.WriteLine("Current Link: " + steamID);
+
+                string ResolveVanityURLLink = $"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1?key={APIKey}&steamid&vanityurl={steamID}";
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write("GET ");
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.Write(ResolveVanityURLLink + "\n");
+                Console.ForegroundColor = ConsoleColor.White;
+                byte[] ResolveVanityURLApiResponse = wc.DownloadData(ResolveVanityURLLink);
+
+                string ResolveVanityURLString = Encoding.Default.GetString(ResolveVanityURLApiResponse);
+
+                var ResolveVanityURLRoot = JToken.Parse(ResolveVanityURLString);
+
+                var GetSteamID = ResolveVanityURLRoot
+                   .SelectToken("response")
+                   .SelectToken("steamid");
+
+                steamID = GetSteamID.ToString();
+                Console.WriteLine("Returned steamID: {0}", steamID);
+
+            }
+            
 
             if (String.IsNullOrWhiteSpace(steamID))
             {
@@ -78,14 +119,11 @@ namespace SteamCalc
 
             try
             {
-
-
-
                 string SteamGamesAPILink = $"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1?key={APIKey}&steamid={steamID}";
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.Write("GET ");
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.Write(SteamGamesAPILink);
+                Console.Write(SteamGamesAPILink + "");
                 byte[] SteamGamesAPIResponse = wc.DownloadData(SteamGamesAPILink);
 
                 string SteamLevelAPILink = $"https://api.steampowered.com/IPlayerService/GetSteamLevel/v1?key={APIKey}&steamid={steamID}";
@@ -102,19 +140,27 @@ namespace SteamCalc
                 Console.Write(PlayerInfoAPILink + "\n");
                 byte[] PlayerInfoAPIResponse = wc.DownloadData(PlayerInfoAPILink);
 
+                string LastPlayedGameAPILink = $"https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1?key={APIKey}&steamid={steamID}&count=1";
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write("GET ");
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.Write(LastPlayedGameAPILink + "\n");
+                byte[] LastPlayedGameAPIResponse = wc.DownloadData(LastPlayedGameAPILink);
+
+                string LastPlayedGameAPIResponseString = Encoding.Default.GetString(LastPlayedGameAPIResponse);
                 string PlayerInfoAPIResponseString = Encoding.Default.GetString(PlayerInfoAPIResponse);
                 string SteamLevelAPIResponseString = Encoding.Default.GetString(SteamLevelAPIResponse);
                 string SteamGamesAPIResponseString = Encoding.Default.GetString(SteamGamesAPIResponse);
 
+
+                var lastPlayedGameRoot = JToken.Parse(LastPlayedGameAPIResponseString);
                 var levelRoot = JToken.Parse(SteamLevelAPIResponseString);
                 var gamesRoot = JToken.Parse(SteamGamesAPIResponseString);
                 var infoRoot = JToken.Parse(PlayerInfoAPIResponseString);
 
-#pragma warning disable CS8604
                 var playtimeRoot = gamesRoot
                     .SelectToken("response")
                     .SelectToken("games");
-#pragma warning restore CS8604
 
                 var level = levelRoot
                     .SelectToken("response")
@@ -124,13 +170,56 @@ namespace SteamCalc
                     .SelectToken("response")
                     .SelectToken("players");
 
-                
+                var lastPlayedGame = lastPlayedGameRoot
+                    .SelectToken("response")
+                    .SelectToken("games");
 
-                foreach(JToken token in userRoot)
+
+                var gameCountVar = gamesRoot
+                    .SelectToken("response")
+                   .SelectToken("game_count").ToString();
+
+                GamesOwned = gameCountVar;
+
+                try
                 {
-                    RealName = token.SelectToken("realname").ToString();
+                    foreach (JToken token in lastPlayedGame)
+                    {
+                        LastPlayedGame = token.SelectToken("name").ToString();
+                    }
+                }
+                catch
+                {
+                    LastPlayedGame = "Not Provided.";
+                }
+
+                foreach (JToken token in userRoot)
+                {
                     Username = token.SelectToken("personaname").ToString();
-                    CountryCode = token.SelectToken("loccountrycode").ToString();
+                }
+
+                try
+                {
+                    foreach (JToken token in userRoot)
+                    {
+                        RealName = token.SelectToken("realname").ToString();
+                    }
+                }
+                catch
+                {
+                    RealName = "Not provided.";
+                }
+
+                try
+                {
+                    foreach (JToken token in userRoot)
+                    {
+                        CountryCode = token.SelectToken("loccountrycode").ToString();
+                    }
+                }
+                catch
+                {
+                    CountryCode = "Not Provided.";
                 }
 
                 try
@@ -148,12 +237,25 @@ namespace SteamCalc
                     await Main();
                 }
 
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("\n" +
+                    "----------------------------------------" +
+                    "\n");
+                Console.ForegroundColor = ConsoleColor.White;
+
+
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.WriteLine($"{Username} | {CountryCode}");
                 Console.WriteLine(RealName);
                 Console.WriteLine($"Player level: {level}");
-                Console.WriteLine($"Playtime: {totalPlaytime / 60} Hours / {totalPlaytime} Mins / {totalPlaytime * 60} Secs");
+                Console.WriteLine($"{GamesOwned} games owned.");
+                Console.WriteLine($"Total Playtime: {totalPlaytime / 60} Hours / {totalPlaytime} Mins / {totalPlaytime * 60} Secs");
+                Console.WriteLine($"Recently played game: {LastPlayedGame}");
 
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("\n" +
+                    "----------------------------------------" +
+                    "\n");
                 Console.ForegroundColor = ConsoleColor.White;
 
                 totalPlaytime = 0;
