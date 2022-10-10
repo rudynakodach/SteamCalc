@@ -46,15 +46,16 @@ namespace SteamCalc
                 using (FileStream fs = new(KeyFileDirectory + saveFilename, FileMode.Create))
                 using (StreamWriter sw = new(fs))
                 {
-                    if(!ChangeAPIKey)
+                    if (!ChangeAPIKey)
                         Console.Write("API key not found! You can get one from https://steamcommunity.com/dev/apikey\nEnter your API key: ");
                     else
                     {
                         Console.Write("You can get your API key from https://steamcommunity.com/dev/apikey \nEnter your API key: ");
                         ChangeAPIKey = false;
                     }
+#pragma warning disable CS8600
                     string SteamAPIKey = Console.ReadLine();
-
+#pragma warning restore CS8600
                     sw.Write(SteamAPIKey);
                     sw.Close();
                     APIKey = SteamAPIKey;
@@ -64,7 +65,7 @@ namespace SteamCalc
             if (startupMessage)
             {
                 startupMessage = false;
-                Console.WriteLine($"Your API Key: {APIKey}\nType \"-edit apikey\" to edit your API key. ");
+                Console.WriteLine($"Your API Key: {APIKey}\nType \"-edit apikey\" to edit your API key. \nYou can get someone's profile just by using their Vanity ID by using \"-v [VanityID]\".");
             }
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write("SteamID or vanity URL: ");
@@ -104,9 +105,39 @@ namespace SteamCalc
 
                 steamID = GetSteamID.ToString();
                 Console.WriteLine("Returned steamID: {0}", steamID);
-
             }
-            
+            else if (steamID.Contains("-v"))
+            {
+                try
+                {
+                    string[] SlicedSteamID = steamID.Split(' ');
+                    string VanityID = SlicedSteamID[1];
+
+                    string ResolveVanityURLLink = $"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1?key={APIKey}&steamid&vanityurl={VanityID}";
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write("GET ");
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.Write(ResolveVanityURLLink + "\n");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    byte[] ResolveVanityURLApiResponse = wc.DownloadData(ResolveVanityURLLink);
+
+                    string ResolveVanityURLString = Encoding.Default.GetString(ResolveVanityURLApiResponse);
+
+                    var ResolveVanityURLRoot = JToken.Parse(ResolveVanityURLString);
+
+                    var GetSteamID = ResolveVanityURLRoot
+                       .SelectToken("response")
+                       .SelectToken("steamid");
+
+                    steamID = GetSteamID.ToString();
+                    Console.WriteLine("Returned steamID: {0}", steamID);
+                }
+                catch (Exception e2)
+                {
+                    Console.WriteLine(e2.Message);
+                }
+            }
+
 
             if (String.IsNullOrWhiteSpace(steamID))
             {
@@ -174,13 +205,12 @@ namespace SteamCalc
                     .SelectToken("response")
                     .SelectToken("games");
 
-
                 var gameCountVar = gamesRoot
                     .SelectToken("response")
-                   .SelectToken("game_count").ToString();
+                    .SelectToken("game_count").ToString();
 
                 GamesOwned = gameCountVar;
-
+                
                 try
                 {
                     foreach (JToken token in lastPlayedGame)
@@ -264,11 +294,15 @@ namespace SteamCalc
             {
                 if (e.Message == "The remote server returned an error: (500) Internal Server Error.")
                 {
+                    Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("Please provide a working API key or check the SteamID");
+                    Console.ForegroundColor = ConsoleColor.White;
                 }
                 else
                 {
+                    Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine(e.Message);
+                    Console.ForegroundColor = ConsoleColor.White;
                 }
             }
             await Main();
