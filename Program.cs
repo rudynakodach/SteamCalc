@@ -4,6 +4,8 @@ using System.Text;
 using Newtonsoft.Json.Linq;
 using System.IO;
 using System.Threading.Tasks;
+using System.Diagnostics;
+
 #pragma warning disable SYSLIB0014
 #pragma warning disable CS8602
 
@@ -150,33 +152,59 @@ namespace SteamCalc
 
             try
             {
+                Stopwatch st = new();
+                st.Start();
                 string SteamGamesAPILink = $"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1?key={APIKey}&steamid={steamID}";
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.Write("GET ");
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.Write(SteamGamesAPILink + "");
                 byte[] SteamGamesAPIResponse = wc.DownloadData(SteamGamesAPILink);
+                st.Stop();
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("\nSUCCESS: ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write($"Operation completed in {0}ms", st.Elapsed);
 
+
+                st.Restart();
                 string SteamLevelAPILink = $"https://api.steampowered.com/IPlayerService/GetSteamLevel/v1?key={APIKey}&steamid={steamID}";
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.Write("\nGET ");
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.Write(SteamLevelAPILink + "\n");
                 byte[] SteamLevelAPIResponse = wc.DownloadData(SteamLevelAPILink);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("SUCCESS: ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write($"Operation completed in {0}ms\n", st.Elapsed);
 
+                st.Restart();
                 string PlayerInfoAPILink = $"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2?key={APIKey}&steamids={steamID}";
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.Write("GET ");
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.Write(PlayerInfoAPILink + "\n");
                 byte[] PlayerInfoAPIResponse = wc.DownloadData(PlayerInfoAPILink);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("SUCCESS: ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write($"Operation completed in {0}ms\n", st.Elapsed);
 
+                st.Restart();
                 string LastPlayedGameAPILink = $"https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1?key={APIKey}&steamid={steamID}&count=1";
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.Write("GET ");
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.Write(LastPlayedGameAPILink + "\n");
                 byte[] LastPlayedGameAPIResponse = wc.DownloadData(LastPlayedGameAPILink);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("SUCCESS: ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write($"Operation completed in {0}ms\n", st.Elapsed);
+
+                Console.WriteLine("\nIterating through JSON keys...\n");
+                st.Restart();
 
                 string LastPlayedGameAPIResponseString = Encoding.Default.GetString(LastPlayedGameAPIResponse);
                 string PlayerInfoAPIResponseString = Encoding.Default.GetString(PlayerInfoAPIResponse);
@@ -269,6 +297,9 @@ namespace SteamCalc
                     Console.WriteLine("Error occured when iteratimg in JSON!");
                     await Main();
                 }
+                st.Stop();
+                Console.WriteLine("Iteration completed in {0}ms", st.ElapsedMilliseconds);
+
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("\n" +
@@ -278,12 +309,12 @@ namespace SteamCalc
 
 
                 Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine($"{Username} | {CountryCode}");
-                Console.WriteLine(RealName);
-                Console.WriteLine($"Player level: {level}");
-                Console.WriteLine($"{GamesOwned} games owned.");
-                Console.WriteLine($"Total Playtime: {totalPlaytime / 60} Hours / {totalPlaytime} Mins / {totalPlaytime * 60} Secs");
-                Console.WriteLine($"Recently played game: {LastPlayedGame}");
+                Console.WriteLine("   {0,-35} {1,35}", "Username: ", $"{Username} | {CountryCode}");
+                Console.WriteLine("   {0,-35} {1,35}", $"Name: ",RealName);
+                Console.WriteLine("   {0,-35} {1,35}", $"Player level: ", level);
+                Console.WriteLine("   {0,-35} {1,35}", $"Games owned: ", GamesOwned);
+                Console.WriteLine("   {0,-35} {1,35}",$"Total Playtime: ",$"{totalPlaytime / 60} Hours / {totalPlaytime} Mins / {totalPlaytime * 60} Secs");
+                Console.WriteLine("   {0,-35} {1,35}", $"Recently played game: ", LastPlayedGame);
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("\n" +
