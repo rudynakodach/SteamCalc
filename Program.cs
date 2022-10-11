@@ -34,6 +34,8 @@ namespace SteamCalc
 
         public static async Task Main()
         {
+
+            Console.Title = "Steam Calculator - RudyNaKodach";
             if (File.Exists(KeyFileDirectory + saveFilename))
             {
                 using (StreamReader sr = new(KeyFileDirectory + saveFilename))
@@ -328,6 +330,7 @@ namespace SteamCalc
             {
                 if (e.Message == "The remote server returned an error: (500) Internal Server Error.")
                 {
+                    Console.Beep();
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine("Please provide a working API key or check the SteamID");
                     Console.ForegroundColor = ConsoleColor.White;
