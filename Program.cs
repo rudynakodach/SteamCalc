@@ -185,7 +185,8 @@ namespace SteamCalc
 				Console.Write($"Operation completed in {0}ms", st.Elapsed);
 
 
-				st.Restart();
+				st.Reset();
+				st.Start();
 				string SteamLevelAPILink = $"https://api.steampowered.com/IPlayerService/GetSteamLevel/v1?key={APIKey}&steamid={steamID}";
 				Console.ForegroundColor = ConsoleColor.Red;
 				Console.Write("\nGET ");
@@ -197,7 +198,8 @@ namespace SteamCalc
 				Console.ForegroundColor = ConsoleColor.White;
 				Console.Write($"Operation completed in {0}ms\n", st.Elapsed);
 
-				st.Restart();
+				st.Reset();
+				st.Start();
 				string PlayerInfoAPILink = $"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2?key={APIKey}&steamids={steamID}";
 				Console.ForegroundColor = ConsoleColor.Red;
 				Console.Write("GET ");
@@ -209,7 +211,8 @@ namespace SteamCalc
 				Console.ForegroundColor = ConsoleColor.White;
 				Console.Write($"Operation completed in {0}ms\n", st.Elapsed);
 
-				st.Restart();
+				st.Reset();
+				st.Start();
 				string LastPlayedGameAPILink = $"https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1?key={APIKey}&steamid={steamID}&count=1";
 				Console.ForegroundColor = ConsoleColor.Red;
 				Console.Write("GET ");
@@ -222,7 +225,8 @@ namespace SteamCalc
 				Console.Write($"Operation completed in {0}ms\n", st.Elapsed);
 
 				Console.WriteLine("\nIterating through JSON keys...\n");
-				st.Restart();
+				st.Reset();
+				st.Start();
 
 				string LastPlayedGameAPIResponseString = Encoding.Default.GetString(LastPlayedGameAPIResponse);
 				string PlayerInfoAPIResponseString = Encoding.Default.GetString(PlayerInfoAPIResponse);
@@ -262,18 +266,31 @@ namespace SteamCalc
 					.SelectToken("response")
 					.SelectToken("players");
 
+
+				bool LastPlayedGameAvaible;
 				var lastPlayedGame = lastPlayedGameRoot
 					.SelectToken("response");
 
-
-				if (!lastPlayedGame.ToString().Contains("games"))
+				if(lastPlayedGame.ToString().Contains("games"))
 				{
-					lastPlayedGame = "N/A";
-				}
+					lastPlayedGame = lastPlayedGame
+					   .SelectToken("games");
+					LastPlayedGameAvaible = true;
+                }
 				else
 				{
-					LastPlayedGame = lastPlayedGame
-						.SelectToken("games").ToString();
+					LastPlayedGameAvaible = false;
+					LastPlayedGame = "N/A";
+				}
+
+
+				if(LastPlayedGameAvaible)
+				{
+					foreach(JToken token in lastPlayedGame)
+					{
+                        LastPlayedGame = token
+					      .SelectToken("name").ToString();
+                    }
 				}
 
 				var gameCountVar = gamesRoot
@@ -291,22 +308,6 @@ namespace SteamCalc
 
 				try
 				{
-                    //NullReferenceException
-                    lastPlayedGame = lastPlayedGame
-						.SelectToken("games");
-                    if (lastPlayedGame.ToString().Contains("name"))
-					{
-						foreach(JToken token in lastPlayedGame)
-						{
-							LastPlayedGame = token
-								.SelectToken("name").ToString();
-						}
-					}
-					else
-					{
-						LastPlayedGame = "N/A";
-					}
-					LastPlayedGame = "N/A";
 					foreach (JToken token in userRoot)
 					{
 						Username = token.SelectToken("personaname").ToString();
